@@ -85,6 +85,7 @@ The application's ingestion engine will automatically:
 - `app.py`: The core Streamlit application containing the avoided cost calculation engine, custom rate schedules (Alabama Power FD, Georgia Power R), and dashboard visualizations.
 - `requirements.txt`: Python package dependencies (Streamlit, Pandas, NumPy, Plotly).
 - `Cambium_Hourly_Data_raw/`: Folder where users should place raw NREL hourly CSV downloads (for any scenario/year).
+- `Weather_Data_raw/`: Contains subfolders (`Baseline/`, `Extreme_Winter/`, `Extreme_Summer/`) where users can place real weather datasets (e.g. `.epw` or `.csv` files) to override synthetic temperatures with real weather profiles.
 - `CWFT.csv`: The Capacity Weighting Factor Table (CWFT) representing hour-by-hour system risk weights. *(Note: Must be replaced with real utility/ISO risk factor data for real-world evaluations).*
 - `load_profiles.csv`: Standard building load shapes for baseline and dynamic load modification analysis.
 - `southeast_avoided_costs_AL_GA.csv`: Hourly avoided cost projections derived from NREL Cambium datasets for Alabama and Georgia balancing authorities.

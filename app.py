@@ -334,6 +334,81 @@ def parse_cambium_columns(df):
     return hour_col, energy_col, carbon_col
 
 
+def load_custom_weather_file(weather_case):
+    """
+    Looks in Weather_Data_raw/<case_folder>/ for a .epw or .csv file and loads dry-bulb temperature (8760).
+    Returns a numpy array of temperatures in Fahrenheit, or None if no file is found.
+    """
+    case_folder_map = {
+        "2012 (Cambium-aligned baseline)": "Baseline",
+        "Extreme Winter": "Extreme_Winter",
+        "Extreme Summer": "Extreme_Summer"
+    }
+    folder_name = case_folder_map.get(weather_case, "Baseline")
+    target_dir = os.path.join("Weather_Data_raw", folder_name)
+    os.makedirs(target_dir, exist_ok=True)
+    
+    # Search for .epw or .csv files
+    files = []
+    for ext in ["*.epw", "*.csv"]:
+        files.extend(glob.glob(os.path.join(target_dir, ext)))
+        
+    if not files:
+        return None
+        
+    file_path = files[0]  # Take the first matched file
+    try:
+        if file_path.lower().endswith(".epw"):
+            # EPW files have 8 header lines, then 8760 data lines.
+            # Temperature is column index 6 (0-indexed), in Celsius.
+            with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                lines = f.readlines()
+            data_lines = lines[8:]
+            if len(data_lines) != 8760:
+                data_lines = data_lines[:8760]
+            
+            temps_c = []
+            for line in data_lines:
+                parts = line.split(',')
+                if len(parts) > 6:
+                    temps_c.append(float(parts[6]))
+                else:
+                    temps_c.append(0.0)
+                    
+            temps_c = np.array(temps_c)
+            # Convert to Fahrenheit
+            temps_f = temps_c * 1.8 + 32.0
+            return temps_f
+            
+        elif file_path.lower().endswith(".csv"):
+            df = pd.read_csv(file_path)
+            # Try to find a temperature column
+            temp_col = None
+            for col in df.columns:
+                if any(x in col.lower() for x in ["temperature", "temp", "drybulb", "dry_bulb", "db_temp"]):
+                    temp_col = col
+                    break
+            if temp_col is None:
+                # If no clear header, take the first numeric column that isn't Hour or Hour index
+                numeric_cols = [c for c in df.select_dtypes(include=[np.number]).columns if c.lower() not in ["hour", "hour_index", "datetime"]]
+                if numeric_cols:
+                    temp_col = numeric_cols[0]
+                    
+            if temp_col:
+                temps = df[temp_col].to_numpy()
+                if len(temps) != 8760:
+                    temps = np.resize(temps, 8760)
+                # Smart heuristic: Celsius vs Fahrenheit check
+                # If max temp is < 50, assume Celsius and convert
+                if np.nanmax(temps) < 50.0:
+                    temps = temps * 1.8 + 32.0
+                return temps
+    except Exception as e:
+        st.sidebar.error(f"Error loading custom weather file {os.path.basename(file_path)}: {str(e)}")
+        
+    return None
+
+
 @st.cache_data
 def load_and_aggregate_data(target_states, selected_scenario, weather_case, target_year="2026", planning_year="2040", input_directory=INPUT_DIRECTORY):
     """
@@ -468,11 +543,18 @@ def load_and_aggregate_data(target_states, selected_scenario, weather_case, targ
     hours = regional_base['Hour'].to_numpy()
     np.random.seed(42)
     
-    seasonal_temp = 62.0 - 22.0 * np.cos(2 * np.pi * (hours - 360) / 8760)
-    daily_temp = -8.0 * np.cos(2 * np.pi * (hours - 15) / 24)
-    temp_noise = np.random.normal(0, 3.0, 8760)
-    temperature = seasonal_temp + daily_temp + temp_noise
+    # Try to load custom weather file (.epw or .csv) from Weather_Data_raw/
+    custom_temp = load_custom_weather_file(weather_case)
     
+    if custom_temp is not None:
+        temperature = custom_temp
+    else:
+        # Fall back to synthetic profile
+        seasonal_temp = 62.0 - 22.0 * np.cos(2 * np.pi * (hours - 360) / 8760)
+        daily_temp = -8.0 * np.cos(2 * np.pi * (hours - 15) / 24)
+        temp_noise = np.random.normal(0, 3.0, 8760)
+        temperature = seasonal_temp + daily_temp + temp_noise
+        
     energy_price = regional_base['Cambium_Energy_MWh'].to_numpy()
     
     cwft_derived = np.zeros(8760)
@@ -485,20 +567,30 @@ def load_and_aggregate_data(target_states, selected_scenario, weather_case, targ
             summer_hours.append(h - 1)
             
     if weather_case == "Extreme Winter":
-        cold_snap_mask = (hours >= 120) & (hours <= 180)
-        temperature[cold_snap_mask] -= 22.0
+        if custom_temp is None:
+            cold_snap_mask = (hours >= 120) & (hours <= 180)
+            temperature[cold_snap_mask] -= 22.0
+            
         winter_morning_mask = (hours <= 1440) & (np.isin(hours % 24, [6, 7, 8, 9]))
         energy_price[winter_morning_mask] *= np.random.uniform(2.2, 3.5, size=winter_morning_mask.sum())
-        energy_price[cold_snap_mask & (np.isin(hours % 24, [6, 7, 8, 9]))] *= 2.0
+        
+        if custom_temp is None:
+            energy_price[cold_snap_mask & (np.isin(hours % 24, [6, 7, 8, 9]))] *= 2.0
+            
         cwft_derived[winter_hours] = 0.80 / len(winter_hours)
         cwft_derived[summer_hours] = 0.20 / len(summer_hours)
         
     elif weather_case == "Extreme Summer":
-        heatwave_mask = (hours >= 4800) & (hours <= 4860)
-        temperature[heatwave_mask] += 10.0
+        if custom_temp is None:
+            heatwave_mask = (hours >= 4800) & (hours <= 4860)
+            temperature[heatwave_mask] += 10.0
+            
         summer_afternoon_mask = (hours >= 4345) & (hours <= 5832) & (np.isin(hours % 24, [14, 15, 16, 17, 18]))
         energy_price[summer_afternoon_mask] *= np.random.uniform(2.2, 3.5, size=summer_afternoon_mask.sum())
-        energy_price[heatwave_mask & (np.isin(hours % 24, [14, 15, 16, 17, 18]))] *= 2.0
+        
+        if custom_temp is None:
+            energy_price[heatwave_mask & (np.isin(hours % 24, [14, 15, 16, 17, 18]))] *= 2.0
+            
         cwft_derived[winter_hours] = 0.15 / len(winter_hours)
         cwft_derived[summer_hours] = 0.85 / len(summer_hours)
         

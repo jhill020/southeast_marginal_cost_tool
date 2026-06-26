@@ -65,5 +65,14 @@ Thumbs.db
 Cambium_Hourly_Data_raw/*
 !Cambium_Hourly_Data_raw/instructions.txt
 
+# Weather large dataset folders (ignore contents except instructions.txt)
+Weather_Data_raw/Baseline/*
+!Weather_Data_raw/Baseline/instructions.txt
+Weather_Data_raw/Extreme_Winter/*
+!Weather_Data_raw/Extreme_Winter/instructions.txt
+Weather_Data_raw/Extreme_Summer/*
+!Weather_Data_raw/Extreme_Summer/instructions.txt
+
+
 
 

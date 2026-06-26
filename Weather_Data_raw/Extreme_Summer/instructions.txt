@@ -1,0 +1,6 @@
+Place your custom Extreme Summer weather files here (e.g. from an AMY file representing a severe hot summer).
+Supported formats:
+- .epw (EnergyPlus Weather)
+- .csv (containing a temperature column)
+
+If a file is found in this directory, the application will automatically read and use its dry-bulb temperature profile instead of generating a synthetic one.
