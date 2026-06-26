@@ -72,9 +72,7 @@ The application's ingestion engine will automatically:
    * **Target States** (e.g., `AL`, `GA`, etc.)
 4. **Multi-row Skip & Map**: Skip the first 5 metadata/description rows of raw files to load the actual hourly 8760 data, and auto-resolve column headers using an intelligent variable mapping engine (mapping energy price columns like `energy_cost_busbar` or `energy_cost_enduse` and emission columns like `lrmer_co2_c`).
 
-> [!IMPORTANT]
-> **Strict Data Validation (No Mock Fallbacks):**  
-> To ensure mathematical and engineering integrity, the application **does not generate mock grid datasets** if files are missing. If any selected state, scenario, or planning year combination cannot be found in your local files, the engine will stop execution and throw a clear `FileNotFoundError`.
+
 
 > [!WARNING]
 > **Capacity Weighting Factor Table (CWFT) Data:**  
