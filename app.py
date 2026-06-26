@@ -845,6 +845,34 @@ interpolates missing points, and builds a customized `.epw` file using NREL's TM
             st.error(f"❌ **Error generating EPW file:** {str(e)}")
             st.info("Check that the WMO ID is valid and that you have a stable internet connection.")
 
+    # WMO ID lookup instructions and Citation references
+    st.write("") # spacing
+    with st.expander("❓ How to find your weather station's WMO Station ID"):
+        st.markdown(
+            """**World Meteorological Organization (WMO) Station IDs** are 6-digit numeric codes representing weather stations.
+            
+You can find WMO IDs for your location in two ways:
+1. **Interactive Map (Recommended):** Go to NREL's [EnergyPlus Weather Data map](https://energyplus.net/weather). Browse the map or search for your location using the search field. The 6-digit WMO ID is the number shown in parentheses in the station's title field (or in the filename of download options).
+2. **Tabular Database:** Search the database at [Weather Station Identifiers](http://www.weathergraphics.com/identifiers/) to look up stations by state, city, or name.
+
+*Note: The generator defaults to `722300` (Birmingham Shuttlesworth International Airport, AL). Other local examples: Atlanta Hartsfield-Jackson, GA is `722190`.*"""
+        )
+        
+    with st.expander("📖 Citation & About diyepw"):
+        st.markdown(
+            """The AMY weather file generator uses PNNL's open-source `diyepw` tool.
+            
+**GitHub Repository:** [IMMM-SFA/diyepw](https://github.com/IMMM-SFA/diyepw)
+
+If you use these generated files in a research paper, model, or report, please cite `diyepw` as recommended by the authors:
+
+* **Paper:** 
+  > Amanda D. Smith, Benjamin Stürmer, Travis Thurber, & Chris R. Vernon. (2021). diyepw: A Python package for Do-It-Yourself EnergyPlus weather file generation. *Journal of Open Source Software*, 6(64), 3313. [https://doi.org/10.21105/joss.03313](https://doi.org/10.21105/joss.03313)
+  
+* **Software/Code:**
+  > Amanda D. Smith, Benjamin Stürmer, Travis Thurber, & Chris R. Vernon. (2021). diyepw: A Python package for Do-It-Yourself EnergyPlus weather file generation (Version v2.0.0). *Zenodo*. [https://doi.org/10.5281/zenodo.5258122](https://doi.org/10.5281/zenodo.5258122)"""
+        )
+
 
 # ==============================================================================
 # SIDEBAR CONTROLS & INPUT PARAMETERS
