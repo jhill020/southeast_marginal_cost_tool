@@ -770,6 +770,82 @@ def dispatch_dr_program(datetime_series, cwft_array, dr_hours_per_year, season_n
         dr_reduction[idx] = min(dr_capacity_kw, baseline_load[idx])
     return dr_reduction, selected_hours
 
+
+def render_weather_generator(key_suffix: str):
+    st.markdown("### 🌩️ AMY EPW Weather Generator (`diyepw`)")
+    st.markdown(
+        """This utility automates the generation of **Actual Meteorological Year (AMY) EPW weather files** 
+using PNNL's `diyepw` tool. It automatically downloads observations from the NOAA Integrated Surface Database (ISD),
+interpolates missing points, and builds a customized `.epw` file using NREL's TMY3 as a template."""
+    )
+    
+    st.info(
+        "💡 **Requirements:** Generating files requires an active internet connection to download "
+        "NOAA observations (~1MB per station/year) and NREL TMY3 templates. The process may take 1-2 minutes."
+    )
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        wmo_id = st.number_input(
+            "WMO Station ID (6-digit)",
+            min_value=100000,
+            max_value=999999,
+            value=722300, # Default: Birmingham Shuttlesworth, AL
+            help="Check WMO IDs for your location from NOAA or climate databases. E.g. Atlanta, GA is 722190.",
+            key=f"wmo_id_{key_suffix}"
+        )
+        
+        target_year = st.selectbox(
+            "Weather Observation Year",
+            options=[2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024],
+            index=2, # Default: 2012
+            key=f"target_year_{key_suffix}"
+        )
+    
+    with col2:
+        weather_destination = st.selectbox(
+            "Weather Case Destination Folder",
+            options=["Baseline", "Extreme_Winter", "Extreme_Summer"],
+            index=0,
+            help="Determines which 'Weather_Data_raw/' folder the generated EPW file will be saved in.",
+            key=f"weather_dest_{key_suffix}"
+        )
+        
+        st.write("") # spacing
+        st.write("")
+        generate_button = st.button("⚡ Generate AMY Weather File", type="primary", use_container_width=True, key=f"generate_btn_{key_suffix}")
+    
+    if generate_button:
+        try:
+            # Local import of diyepw to prevent app startup failure if not installed
+            import diyepw
+            
+            target_dir = os.path.join("Weather_Data_raw", weather_destination)
+            os.makedirs(target_dir, exist_ok=True)
+            
+            with st.spinner(f"Downloading observations and generating AMY EPW for WMO {wmo_id} (Year {target_year})..."):
+                diyepw.create_amy_epw_files_for_years_and_wmos(
+                    years=[target_year],
+                    wmos=[wmo_id],
+                    max_records_to_interpolate=10,
+                    max_records_to_impute=25,
+                    max_missing_amy_rows=5,
+                    allow_downloads=True,
+                    amy_epw_dir=target_dir
+                )
+            st.success(f"🎉 Success! AMY EPW file generated and saved to: `Weather_Data_raw/{weather_destination}/`")
+            st.balloons()
+            
+        except ImportError:
+            st.error(
+                "❌ **Missing Library:** The `diyepw` package is not installed. "
+                "Please run `pip install diyepw` in your environment to use this generator."
+            )
+        except Exception as e:
+            st.error(f"❌ **Error generating EPW file:** {str(e)}")
+            st.info("Check that the WMO ID is valid and that you have a stable internet connection.")
+
+
 # ==============================================================================
 # SIDEBAR CONTROLS & INPUT PARAMETERS
 # ==============================================================================
@@ -961,8 +1037,15 @@ if run_simulation:
 # ==============================================================================
 if not st.session_state['simulation_executed']:
     st.info("💡 **Welcome:** Verify your setting panels in the sidebar and click **Run Valuation Engine** to execute calculations.")
-    st.markdown(
-        """<div style="background-color: #F8FAFC; border: 1px solid #E2E8F0; padding: 30px; border-radius: 12px; margin-top: 10px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05); font-family: sans-serif;">
+    
+    welcome_tab_instruct, welcome_tab_weather_gen = st.tabs([
+        "📋 Instructions & Setup",
+        "🌩️ AMY Weather Generator"
+    ])
+    
+    with welcome_tab_instruct:
+        st.markdown(
+            """<div style="background-color: #F8FAFC; border: 1px solid #E2E8F0; padding: 30px; border-radius: 12px; margin-top: 10px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05); font-family: sans-serif;">
 <h3 style="margin-top: 0; color: #1E3A8A; font-weight: 700; border-bottom: 2px solid #DBEAFE; padding-bottom: 8px;">
 📋 Instructions: Preparing Inputs for Energy & Capacity Valuation
 </h3>
@@ -1011,8 +1094,11 @@ Because grid risk and heat pump loads are highly non-linear and temperature-coin
 💡 <b>Note:</b> A default mock setup (dual-peak 2012 weather profile for AL/GA) will be written to <code>CWFT.csv</code> and <code>load_profiles.csv</code> automatically in your main directory if the files are not found on execution.
 </p>
 </div>""",
-        unsafe_allow_html=True
-    )
+            unsafe_allow_html=True
+        )
+        
+    with welcome_tab_weather_gen:
+        render_weather_generator("welcome")
 else:
     if not target_states:
         st.warning("⚠️ **Selection Required:** Please choose at least one state in the sidebar multi-select.")
@@ -1835,75 +1921,7 @@ the simulated hourly demand shapes must line up with the grid dataset chronologi
             # TAB 8: AMY WEATHER GENERATOR (diyepw)
             # ------------------------------------------------------------------
             with tab_weather_gen:
-                st.markdown("### 🌩️ AMY EPW Weather Generator (`diyepw`)")
-                st.markdown(
-                    """This utility automates the generation of **Actual Meteorological Year (AMY) EPW weather files** 
-using PNNL's `diyepw` tool. It automatically downloads observations from the NOAA Integrated Surface Database (ISD),
-interpolates missing points, and builds a customized `.epw` file using NREL's TMY3 as a template."""
-                )
-                
-                st.info(
-                    "💡 **Requirements:** Generating files requires an active internet connection to download "
-                    "NOAA observations (~1MB per station/year) and NREL TMY3 templates. The process may take 1-2 minutes."
-                )
-                
-                col1, col2 = st.columns(2)
-                with col1:
-                    wmo_id = st.number_input(
-                        "WMO Station ID (6-digit)",
-                        min_value=100000,
-                        max_value=999999,
-                        value=722300, # Default: Birmingham Shuttlesworth, AL
-                        help="Check WMO IDs for your location from NOAA or climate databases. E.g. Atlanta, GA is 722190."
-                    )
-                    
-                    target_year = st.selectbox(
-                        "Weather Observation Year",
-                        options=[2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024],
-                        index=2 # Default: 2012
-                    )
-                
-                with col2:
-                    weather_destination = st.selectbox(
-                        "Weather Case Destination Folder",
-                        options=["Baseline", "Extreme_Winter", "Extreme_Summer"],
-                        index=0,
-                        help="Determines which 'Weather_Data_raw/' folder the generated EPW file will be saved in."
-                    )
-                    
-                    st.write("") # spacing
-                    st.write("")
-                    generate_button = st.button("⚡ Generate AMY Weather File", type="primary", use_container_width=True)
-                
-                if generate_button:
-                    try:
-                        # Local import of diyepw to prevent app startup failure if not installed
-                        import diyepw
-                        
-                        target_dir = os.path.join("Weather_Data_raw", weather_destination)
-                        os.makedirs(target_dir, exist_ok=True)
-                        
-                        with st.spinner(f"Downloading observations and generating AMY EPW for WMO {wmo_id} (Year {target_year})..."):
-                            diyepw.create_amy_epw_files_for_years_and_wmos(
-                                years=[target_year],
-                                wmos=[wmo_id],
-                                max_records_to_interpolate=10,
-                                max_records_to_impute=25,
-                                max_missing_amy_rows=5,
-                                allow_downloads=True,
-                                amy_epw_dir=target_dir
-                            )
-                        st.success(f"🎉 Success! AMY EPW file generated and saved to: `Weather_Data_raw/{weather_destination}/`")
-                        st.balloons()
-                        
-                    except ImportError:
-                        st.error(
-                            "❌ **Missing Library:** The `diyepw` package is not installed. "
-                            "Please run `pip install diyepw` in your environment to use this generator."
-                        )
-                    except Exception as e:
-                        st.error(f"❌ **Error generating EPW file:** {str(e)}")
-                        st.info("Check that the WMO ID is valid and that you have a stable internet connection.")
+                render_weather_generator("results")
 
         except Exception as e:
             st.error(f"❌ **Data Processing/CSV Parsing Error:** {str(e)}")
