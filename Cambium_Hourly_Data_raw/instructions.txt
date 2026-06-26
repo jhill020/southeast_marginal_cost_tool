@@ -1,0 +1,39 @@
+======================================================================
+               NREL Cambium Data Download & Placement Instructions
+======================================================================
+
+To run the Marginal Cost & Retail Savings Valuation Tool, you need to download
+hourly grid datasets from NREL and place them in this folder.
+
+----------------------------------------------------------------------
+STEP 1: DOWNLOAD DATA FROM NREL
+----------------------------------------------------------------------
+1. Visit the NREL Scenario Viewer:
+   https://scenarioviewer.nlr.gov/
+
+2. Choose the scenario you wish to evaluate, for example:
+   - HighDemandGrowth (2024 Cambium)
+   - MidCase (2024 Cambium)
+   - LowCarbonConstraint (2024 Cambium)
+
+3. Download the hourly dataset for your target States or Balancing Areas.
+   - For Alabama (AL), download balancing area data for: p89, p90
+   - For Georgia (GA), download balancing area data for: p94
+   - For other states, consult the mapping in the main README.md.
+
+4. Make sure to download the CSV files for the target planning years you want
+   to analyze (e.g. 2025, 2030, 2035, 2040, 2045, 2050).
+
+----------------------------------------------------------------------
+STEP 2: PLACE DATA IN THIS DIRECTORY
+======================================================================
+1. Extract/copy the downloaded CSV files.
+2. Paste the raw CSV files directly into this directory:
+   marginal_cost_tool/Cambium_Hourly_Data_raw/
+
+   The application will recursively search this folder for CSV files matching
+   the selected scenario, planning year, and states.
+
+3. Note: Git is configured to ignore all files in this folder EXCEPT for
+   this instructions.txt file. Your downloaded CSVs will NOT be uploaded
+   to your online repository.
