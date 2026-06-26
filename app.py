@@ -826,7 +826,7 @@ interpolates missing points, and builds a customized `.epw` file using NREL's TM
             with st.spinner(f"Downloading observations and generating AMY EPW for WMO {wmo_id} (Year {target_year})..."):
                 diyepw.create_amy_epw_files_for_years_and_wmos(
                     years=[target_year],
-                    wmos=[wmo_id],
+                    wmo_indices=[wmo_id],
                     max_records_to_interpolate=10,
                     max_records_to_impute=25,
                     max_missing_amy_rows=5,
