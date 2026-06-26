@@ -1208,14 +1208,15 @@ else:
             # ==================================================================
             # TABS DISPLAY
             # ==================================================================
-            tab_summary, tab_calculator, tab_grid, tab_weather_diag, tab_scenarios, tab_top_hours, tab_guide = st.tabs([
+            tab_summary, tab_calculator, tab_grid, tab_weather_diag, tab_scenarios, tab_top_hours, tab_guide, tab_weather_gen = st.tabs([
                 "📊 Overview Scorecard",
                 "🔌 Retail lost revenue & RIM",
                 "📅 Wholesale Grid avoided costs",
                 "🌡️ Weather & peak coincidence",
                 "⏳ Lifetime NPV & Scenario manager",
                 "🔍 Debugger & top hours",
-                "📖 EPW Calibration guide"
+                "📖 EPW Calibration guide",
+                "🌩️ AMY Weather Generator"
             ])
             
             # ------------------------------------------------------------------
@@ -1829,6 +1830,80 @@ the simulated hourly demand shapes must line up with the grid dataset chronologi
                     "2. **Calendar Shift:** 2012 began on a **Sunday**. Ensure your load simulation starts on a Sunday so weekend occupied patterns align with Cambium grid weekday rate periods.\n\n"
                     "3. **Standard Time:** Standardize on **Local Standard Time (LST)** year-round. Mismatched daylight savings transitions displace load spikes by 1 hour, incorrectly zeroing out capacity savings."
                 )
+
+            # ------------------------------------------------------------------
+            # TAB 8: AMY WEATHER GENERATOR (diyepw)
+            # ------------------------------------------------------------------
+            with tab_weather_gen:
+                st.markdown("### 🌩️ AMY EPW Weather Generator (`diyepw`)")
+                st.markdown(
+                    """This utility automates the generation of **Actual Meteorological Year (AMY) EPW weather files** 
+using PNNL's `diyepw` tool. It automatically downloads observations from the NOAA Integrated Surface Database (ISD),
+interpolates missing points, and builds a customized `.epw` file using NREL's TMY3 as a template."""
+                )
+                
+                st.info(
+                    "💡 **Requirements:** Generating files requires an active internet connection to download "
+                    "NOAA observations (~1MB per station/year) and NREL TMY3 templates. The process may take 1-2 minutes."
+                )
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    wmo_id = st.number_input(
+                        "WMO Station ID (6-digit)",
+                        min_value=100000,
+                        max_value=999999,
+                        value=722300, # Default: Birmingham Shuttlesworth, AL
+                        help="Check WMO IDs for your location from NOAA or climate databases. E.g. Atlanta, GA is 722190."
+                    )
+                    
+                    target_year = st.selectbox(
+                        "Weather Observation Year",
+                        options=[2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024],
+                        index=2 # Default: 2012
+                    )
+                
+                with col2:
+                    weather_destination = st.selectbox(
+                        "Weather Case Destination Folder",
+                        options=["Baseline", "Extreme_Winter", "Extreme_Summer"],
+                        index=0,
+                        help="Determines which 'Weather_Data_raw/' folder the generated EPW file will be saved in."
+                    )
+                    
+                    st.write("") # spacing
+                    st.write("")
+                    generate_button = st.button("⚡ Generate AMY Weather File", type="primary", use_container_width=True)
+                
+                if generate_button:
+                    try:
+                        # Local import of diyepw to prevent app startup failure if not installed
+                        import diyepw
+                        
+                        target_dir = os.path.join("Weather_Data_raw", weather_destination)
+                        os.makedirs(target_dir, exist_ok=True)
+                        
+                        with st.spinner(f"Downloading observations and generating AMY EPW for WMO {wmo_id} (Year {target_year})..."):
+                            diyepw.create_amy_epw_files_for_years_and_wmos(
+                                years=[target_year],
+                                wmos=[wmo_id],
+                                max_records_to_interpolate=10,
+                                max_records_to_impute=25,
+                                max_missing_amy_rows=5,
+                                allow_downloads=True,
+                                amy_epw_dir=target_dir
+                            )
+                        st.success(f"🎉 Success! AMY EPW file generated and saved to: `Weather_Data_raw/{weather_destination}/`")
+                        st.balloons()
+                        
+                    except ImportError:
+                        st.error(
+                            "❌ **Missing Library:** The `diyepw` package is not installed. "
+                            "Please run `pip install diyepw` in your environment to use this generator."
+                        )
+                    except Exception as e:
+                        st.error(f"❌ **Error generating EPW file:** {str(e)}")
+                        st.info("Check that the WMO ID is valid and that you have a stable internet connection.")
 
         except Exception as e:
             st.error(f"❌ **Data Processing/CSV Parsing Error:** {str(e)}")
